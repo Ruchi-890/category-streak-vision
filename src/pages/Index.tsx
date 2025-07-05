@@ -6,6 +6,16 @@ import ProgressInsights from "@/components/ProgressInsights";
 import StreakView from "@/components/StreakView";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
@@ -27,6 +37,7 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(true);
   const [showStreaks, setShowStreaks] = useState(false);
+  const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -116,6 +127,32 @@ const Index = () => {
     }
   };
 
+  const deleteHabit = async (habit: Habit) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('habits')
+        .delete()
+        .eq('id', habit.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting habit:', error);
+        toast.error('Failed to delete habit');
+        return;
+      }
+
+      // Update local state
+      setHabits(prevHabits => prevHabits.filter(h => h.id !== habit.id));
+      toast.success(`"${habit.name}" habit deleted successfully`);
+      setHabitToDelete(null);
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('An unexpected error occurred');
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
   };
@@ -190,6 +227,7 @@ const Index = () => {
                   key={habit.id}
                   {...habit}
                   onComplete={() => toggleHabit(habit.id)}
+                  onDelete={() => setHabitToDelete(habit)}
                 />
               ))
             )}
@@ -204,6 +242,26 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={habitToDelete !== null} onOpenChange={() => setHabitToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Habit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{habitToDelete?.name}"? This action cannot be undone and will remove all associated data including streaks and completion history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => habitToDelete && deleteHabit(habitToDelete)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Habit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
