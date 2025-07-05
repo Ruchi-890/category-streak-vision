@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import HabitCard from "@/components/HabitCard";
 import MonthlyView from "@/components/MonthlyView";
 import ProgressInsights from "@/components/ProgressInsights";
+import StreakView from "@/components/StreakView";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +26,7 @@ const Index = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [showStreaks, setShowStreaks] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -125,6 +126,16 @@ const Index = () => {
     </div>;
   }
 
+  if (showStreaks) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto">
+          <StreakView onClose={() => setShowStreaks(false)} />
+        </div>
+      </div>
+    );
+  }
+
   const filteredHabits = selectedCategory === "All"
     ? habits
     : habits.filter(habit => habit.category === selectedCategory);
@@ -141,6 +152,9 @@ const Index = () => {
             <p className="text-muted-foreground">Welcome back, {user?.email}</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowStreaks(true)}>
+              View Streaks
+            </Button>
             <Button variant="outline" onClick={() => navigate('/setup')}>
               Add More Habits
             </Button>
