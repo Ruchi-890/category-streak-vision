@@ -7,51 +7,116 @@ import ProgressInsights from "@/components/ProgressInsights";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/sonner";
 
 const CATEGORIES = ["All", "Health", "Learning", "Fitness", "Personal", "Mental Health", "Productivity"];
+
+interface Habit {
+  id: string;
+  name: string;
+  category: string;
+  streak: number;
+  completed: boolean;
+}
 
 const Index = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [habits, setHabits] = useState<Array<{id: number, name: string, category: string, streak: number, completed: boolean}>>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user has completed setup
-    const setupCompleted = localStorage.getItem('setupCompleted');
-    const savedHabits = localStorage.getItem('userHabits');
-    
-    if (!setupCompleted || !savedHabits) {
-      navigate('/setup');
-      return;
+    if (user) {
+      loadHabits();
     }
+  }, [user]);
 
-    // Load habits from localStorage
+  const loadHabits = async () => {
+    if (!user) return;
+
     try {
-      const parsedHabits = JSON.parse(savedHabits);
-      setHabits(parsedHabits);
-    } catch (error) {
-      console.error('Error loading habits:', error);
-      navigate('/setup');
-    }
-    
-    setLoading(false);
-  }, [navigate]);
+      const { data, error } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', user.id);
 
-  const toggleHabit = (id: number) => {
-    const updatedHabits = habits.map(habit =>
-      habit.id === id ? { ...habit, completed: !habit.completed } : habit
-    );
-    setHabits(updatedHabits);
-    localStorage.setItem('userHabits', JSON.stringify(updatedHabits));
+      if (error) {
+        console.error('Error loading habits:', error);
+        toast.error('Failed to load habits');
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        // No habits found, redirect to setup
+        navigate('/setup');
+        return;
+      }
+
+      setHabits(data);
+    } catch (error) {
+      console.error('Unexpected error loading habits:', error);
+      toast.error('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleHabit = async (id: string) => {
+    const habit = habits.find(h => h.id === id);
+    if (!habit || !user) return;
+
+    const newCompletedState = !habit.completed;
+    
+    try {
+      // Update the habit in the database
+      const { error } = await supabase
+        .from('habits')
+        .update({ 
+          completed: newCompletedState,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating habit:', error);
+        toast.error('Failed to update habit');
+        return;
+      }
+
+      // Update local state
+      setHabits(prevHabits =>
+        prevHabits.map(h =>
+          h.id === id ? { ...h, completed: newCompletedState } : h
+        )
+      );
+
+      // Handle habit completion tracking
+      if (newCompletedState) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { error: completionError } = await supabase
+          .from('habit_completions')
+          .insert({
+            habit_id: id,
+            user_id: user.id,
+            completed_date: today
+          });
+
+        if (completionError && !completionError.message.includes('duplicate key')) {
+          console.error('Error tracking completion:', completionError);
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('An unexpected error occurred');
+    }
   };
 
   const handleLogout = async () => {
     await logout();
-    // Clear local data on logout
-    localStorage.removeItem('userHabits');
-    localStorage.removeItem('setupCompleted');
   };
 
   if (loading) {

@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const PRESET_HABITS = [
   { name: "Morning Meditation", category: "Health" },
@@ -20,9 +22,11 @@ const PRESET_HABITS = [
 const CATEGORIES = ["Health", "Learning", "Fitness", "Personal", "Mental Health", "Productivity"];
 
 const Setup = () => {
+  const { user } = useAuth();
   const [selectedHabits, setSelectedHabits] = useState<Array<{name: string, category: string}>>([]);
   const [customHabit, setCustomHabit] = useState('');
   const [customCategory, setCustomCategory] = useState('Health');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const addPresetHabit = (habit: {name: string, category: string}) => {
@@ -42,24 +46,47 @@ const Setup = () => {
     setSelectedHabits(selectedHabits.filter(h => h.name !== habitName));
   };
 
-  const handleFinishSetup = () => {
+  const handleFinishSetup = async () => {
     if (selectedHabits.length === 0) {
       toast.error('Please select at least one habit to track');
       return;
     }
+
+    if (!user) {
+      toast.error('You must be logged in to create habits');
+      return;
+    }
     
-    // For now, we'll store in localStorage until we connect to database
-    localStorage.setItem('userHabits', JSON.stringify(selectedHabits.map((habit, index) => ({
-      id: index + 1,
-      name: habit.name,
-      category: habit.category,
-      streak: 0,
-      completed: false
-    }))));
+    setLoading(true);
     
-    localStorage.setItem('setupCompleted', 'true');
-    toast.success('Your habits have been set up successfully!');
-    navigate('/');
+    try {
+      // Insert habits into the database
+      const habitsToInsert = selectedHabits.map(habit => ({
+        user_id: user.id,
+        name: habit.name,
+        category: habit.category,
+        streak: 0,
+        completed: false
+      }));
+
+      const { error } = await supabase
+        .from('habits')
+        .insert(habitsToInsert);
+
+      if (error) {
+        console.error('Error creating habits:', error);
+        toast.error('Failed to create habits. Please try again.');
+        return;
+      }
+
+      toast.success('Your habits have been set up successfully!');
+      navigate('/');
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,9 +184,9 @@ const Setup = () => {
             <Button 
               onClick={handleFinishSetup}
               size="lg"
-              disabled={selectedHabits.length === 0}
+              disabled={selectedHabits.length === 0 || loading}
             >
-              Start Tracking ({selectedHabits.length} habits)
+              {loading ? 'Creating...' : `Start Tracking (${selectedHabits.length} habits)`}
             </Button>
           </div>
         </div>
