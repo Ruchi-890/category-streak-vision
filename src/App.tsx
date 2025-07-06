@@ -16,7 +16,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a loading spinner
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
   }
 
   return user ? <>{children}</> : <Navigate to="/auth" replace />;
@@ -28,7 +35,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter basename="/category-streak-vision">
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route 
