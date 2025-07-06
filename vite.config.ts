@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
-  base:'/category-streak-vision/',
+  base: mode === 'production' ? '/category-streak-vision/' : '/',  
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
