@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
-  base: mode === 'production' ? '/category-streak-vision/' : '/vite/react/shadcn/ts',
+  base:'/category-streak-vision/',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
