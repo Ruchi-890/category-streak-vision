@@ -29,13 +29,22 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return user ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
+// Get the repository name from the current URL path for GitHub Pages
+const getBasename = () => {
+  if (import.meta.env.PROD) {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments.length > 0 ? `/${pathSegments[0]}` : '/';
+  }
+  return '/';
+};
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter basename="/category-streak-vision">
+        <BrowserRouter basename={getBasename()}>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route 

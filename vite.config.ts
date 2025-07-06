@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
-  base: mode === 'production' ? '/category-streak-vision/' : '/',  
+  base: mode === 'production' ? `/${process.env.GITHUB_REPOSITORY?.split('/')[1] || 'habit-tracker'}/` : '/',  
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
