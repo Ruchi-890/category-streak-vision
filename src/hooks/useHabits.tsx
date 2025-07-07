@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -166,19 +165,20 @@ export const useHabits = () => {
       // Calculate new streak
       const newStreak = await calculateStreak(id);
 
-      // Update the habit's streak in the database
+      // Update the habit's streak AND completed status in the database
       const { error: updateError } = await supabase
         .from('habits')
         .update({ 
           streak: newStreak,
+          completed: true,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
         .eq('user_id', user.id);
 
       if (updateError) {
-        console.error('Error updating habit streak:', updateError);
-        toast.error('Failed to update streak');
+        console.error('Error updating habit:', updateError);
+        toast.error('Failed to update habit');
         return;
       }
 

@@ -10,6 +10,7 @@ import DeleteHabitDialog from "@/components/DeleteHabitDialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useHabits } from "@/hooks/useHabits";
+import { useWeeklyProgress } from "@/hooks/useWeeklyProgress";
 
 interface Habit {
   id: string;
@@ -23,6 +24,7 @@ const Index = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { habits, loading, toggleHabit, deleteHabit } = useHabits();
+  const { weeklyProgress } = useWeeklyProgress();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showStreaks, setShowStreaks] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
@@ -103,7 +105,7 @@ const Index = () => {
           </div>
           <div className="space-y-6">
             <ProgressInsights
-              weeklyProgress={75}
+              weeklyProgress={weeklyProgress}
               totalHabits={habits.length}
               completedToday={completedToday}
             />
