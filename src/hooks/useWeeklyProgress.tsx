@@ -8,7 +8,10 @@ export const useWeeklyProgress = () => {
   const [weeklyProgress, setWeeklyProgress] = useState(0);
 
   const calculateWeeklyProgress = async () => {
-    if (!user) return;
+    if (!user) {
+      setWeeklyProgress(0);
+      return;
+    }
 
     try {
       console.log('Calculating weekly progress for user:', user.id);
