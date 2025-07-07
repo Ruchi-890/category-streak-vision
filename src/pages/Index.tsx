@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MonthlyView from "@/components/MonthlyView";
 import ProgressInsights from "@/components/ProgressInsights";
@@ -29,6 +29,9 @@ const Index = () => {
   const [showStreaks, setShowStreaks] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
 
+  console.log('Index render - habits:', habits);
+  console.log('Index render - weeklyProgress:', weeklyProgress);
+
   const handleLogout = async () => {
     await logout();
   };
@@ -38,17 +41,19 @@ const Index = () => {
     setHabitToDelete(null);
   };
 
+  // Use useEffect to handle navigation instead of doing it during render
+  useEffect(() => {
+    if (!loading && habits.length === 0) {
+      navigate('/setup');
+    }
+  }, [loading, habits.length, navigate]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div>Loading your habits...</div>
       </div>
     );
-  }
-
-  if (habits.length === 0) {
-    navigate('/setup');
-    return null;
   }
 
   if (showStreaks) {

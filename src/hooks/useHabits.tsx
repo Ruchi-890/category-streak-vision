@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,11 +42,15 @@ export const useHabits = () => {
       // Sort completion dates
       const completionDates = data.map(d => new Date(d.completed_date + 'T00:00:00')).sort((a, b) => b.getTime() - a.getTime());
       
+      console.log('Calculating streak for habit:', habitId, 'completionDates:', completionDates);
+      
       // Calculate consecutive days from most recent completion
       for (let i = 0; i < completionDates.length; i++) {
         const completionDate = completionDates[i];
         const expectedDate = new Date(today);
         expectedDate.setDate(today.getDate() - i);
+        
+        console.log('Comparing:', completionDate.toDateString(), 'with expected:', expectedDate.toDateString());
         
         if (completionDate.getTime() === expectedDate.getTime()) {
           streak++;
@@ -54,6 +59,7 @@ export const useHabits = () => {
         }
       }
 
+      console.log('Final streak:', streak);
       return streak;
     } catch (error) {
       console.error('Error calculating streak:', error);
@@ -80,7 +86,9 @@ export const useHabits = () => {
         return false;
       }
 
-      return !!data;
+      const isCompleted = !!data;
+      console.log('Habit', habitId, 'completed today:', isCompleted);
+      return isCompleted;
     } catch (error) {
       console.error('Error checking today completion:', error);
       return false;
@@ -107,11 +115,24 @@ export const useHabits = () => {
         return;
       }
 
+      console.log('Raw habits from database:', data);
+
       // Check today's completion status and calculate streaks for each habit
       const habitsWithCorrectStatus = await Promise.all(
         data.map(async (habit) => {
           const completedToday = await checkTodayCompletion(habit.id);
           const currentStreak = await calculateStreak(habit.id);
+          
+          // Always update the completed status to false in the database if it's not completed today
+          // This ensures habits reset daily
+          if (habit.completed && !completedToday) {
+            console.log('Resetting completed status for habit:', habit.name);
+            await supabase
+              .from('habits')
+              .update({ completed: false })
+              .eq('id', habit.id)
+              .eq('user_id', user.id);
+          }
           
           return {
             ...habit,
@@ -121,6 +142,7 @@ export const useHabits = () => {
         })
       );
 
+      console.log('Processed habits:', habitsWithCorrectStatus);
       setHabits(habitsWithCorrectStatus);
     } catch (error) {
       console.error('Unexpected error loading habits:', error);
@@ -143,6 +165,8 @@ export const useHabits = () => {
     const today = new Date().toISOString().split('T')[0];
     
     try {
+      console.log('Marking habit as completed:', habit.name, 'for date:', today);
+      
       // Mark as completed - add completion record
       const { error: completionError } = await supabase
         .from('habit_completions')
@@ -164,6 +188,7 @@ export const useHabits = () => {
 
       // Calculate new streak
       const newStreak = await calculateStreak(id);
+      console.log('New streak calculated:', newStreak);
 
       // Update the habit's streak AND completed status in the database
       const { error: updateError } = await supabase
@@ -189,6 +214,7 @@ export const useHabits = () => {
         )
       );
 
+      console.log('Habit successfully completed and updated');
       toast.success(`Great! ${habit.name} completed for today! 🎉`);
     } catch (error) {
       console.error('Unexpected error:', error);
