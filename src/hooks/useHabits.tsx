@@ -37,16 +37,18 @@ export const useHabits = () => {
 
       let streak = 0;
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
-      // Calculate consecutive days from today backwards
-      const completionDates = data.map(d => d.completed_date).sort((a, b) => b.localeCompare(a));
+      // Sort completion dates
+      const completionDates = data.map(d => new Date(d.completed_date + 'T00:00:00')).sort((a, b) => b.getTime() - a.getTime());
       
+      // Calculate consecutive days from most recent completion
       for (let i = 0; i < completionDates.length; i++) {
+        const completionDate = completionDates[i];
         const expectedDate = new Date(today);
         expectedDate.setDate(today.getDate() - i);
-        const expectedDateStr = expectedDate.toISOString().split('T')[0];
         
-        if (completionDates[i] === expectedDateStr) {
+        if (completionDate.getTime() === expectedDate.getTime()) {
           streak++;
         } else {
           break;
@@ -102,7 +104,8 @@ export const useHabits = () => {
       }
 
       if (!data || data.length === 0) {
-        return [];
+        setHabits([]);
+        return;
       }
 
       // Check today's completion status and calculate streaks for each habit
@@ -120,11 +123,9 @@ export const useHabits = () => {
       );
 
       setHabits(habitsWithCorrectStatus);
-      return habitsWithCorrectStatus;
     } catch (error) {
       console.error('Unexpected error loading habits:', error);
       toast.error('An unexpected error occurred');
-      return [];
     } finally {
       setLoading(false);
     }
@@ -134,39 +135,32 @@ export const useHabits = () => {
     const habit = habits.find(h => h.id === id);
     if (!habit || !user) return;
 
-    const newCompletedState = !habit.completed;
+    // Only allow checking habits, not unchecking
+    if (habit.completed) {
+      toast.error('This habit is already completed for today!');
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0];
     
     try {
-      if (newCompletedState) {
-        // Mark as completed - add completion record
-        const { error: completionError } = await supabase
-          .from('habit_completions')
-          .insert({
-            habit_id: id,
-            user_id: user.id,
-            completed_date: today
-          });
+      // Mark as completed - add completion record
+      const { error: completionError } = await supabase
+        .from('habit_completions')
+        .insert({
+          habit_id: id,
+          user_id: user.id,
+          completed_date: today
+        });
 
-        if (completionError && !completionError.message.includes('duplicate key')) {
-          console.error('Error tracking completion:', completionError);
-          toast.error('Failed to mark habit as completed');
+      if (completionError) {
+        if (completionError.message.includes('duplicate key')) {
+          toast.error('This habit is already completed for today!');
           return;
         }
-      } else {
-        // Mark as not completed - remove completion record
-        const { error: deleteError } = await supabase
-          .from('habit_completions')
-          .delete()
-          .eq('habit_id', id)
-          .eq('user_id', user.id)
-          .eq('completed_date', today);
-
-        if (deleteError) {
-          console.error('Error removing completion:', deleteError);
-          toast.error('Failed to unmark habit');
-          return;
-        }
+        console.error('Error tracking completion:', completionError);
+        toast.error('Failed to mark habit as completed');
+        return;
       }
 
       // Calculate new streak
@@ -191,13 +185,11 @@ export const useHabits = () => {
       // Update local state
       setHabits(prevHabits =>
         prevHabits.map(h =>
-          h.id === id ? { ...h, completed: newCompletedState, streak: newStreak } : h
+          h.id === id ? { ...h, completed: true, streak: newStreak } : h
         )
       );
 
-      if (newCompletedState) {
-        toast.success(`Great! ${habit.name} completed for today!`);
-      }
+      toast.success(`Great! ${habit.name} completed for today! 🎉`);
     } catch (error) {
       console.error('Unexpected error:', error);
       toast.error('An unexpected error occurred');

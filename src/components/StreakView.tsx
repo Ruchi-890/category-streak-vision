@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,51 @@ const StreakView = ({ onClose }: StreakViewProps) => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const calculateStreakForView = async (habitId: string): Promise<number> => {
+    if (!user) return 0;
+
+    try {
+      const { data, error } = await supabase
+        .from('habit_completions')
+        .select('completed_date')
+        .eq('habit_id', habitId)
+        .eq('user_id', user.id)
+        .order('completed_date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching completion data:', error);
+        return 0;
+      }
+
+      if (!data || data.length === 0) return 0;
+
+      let streak = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Sort completion dates
+      const completionDates = data.map(d => new Date(d.completed_date + 'T00:00:00')).sort((a, b) => b.getTime() - a.getTime());
+      
+      // Calculate consecutive days from most recent completion
+      for (let i = 0; i < completionDates.length; i++) {
+        const completionDate = completionDates[i];
+        const expectedDate = new Date(today);
+        expectedDate.setDate(today.getDate() - i);
+        
+        if (completionDate.getTime() === expectedDate.getTime()) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    } catch (error) {
+      console.error('Error calculating streak:', error);
+      return 0;
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadHabitsWithStreaks();
@@ -46,7 +90,35 @@ const StreakView = ({ onClose }: StreakViewProps) => {
         return;
       }
 
-      setHabits(data || []);
+      if (!data || data.length === 0) {
+        setHabits([]);
+        return;
+      }
+
+      // Recalculate streaks to ensure accuracy
+      const habitsWithUpdatedStreaks = await Promise.all(
+        data.map(async (habit) => {
+          const calculatedStreak = await calculateStreakForView(habit.id);
+          
+          // Update the database if the calculated streak differs from stored value
+          if (calculatedStreak !== habit.streak) {
+            await supabase
+              .from('habits')
+              .update({ streak: calculatedStreak })
+              .eq('id', habit.id)
+              .eq('user_id', user.id);
+          }
+          
+          return {
+            ...habit,
+            streak: calculatedStreak
+          };
+        })
+      );
+
+      // Sort by streak descending
+      habitsWithUpdatedStreaks.sort((a, b) => b.streak - a.streak);
+      setHabits(habitsWithUpdatedStreaks);
     } catch (error) {
       console.error('Unexpected error:', error);
       toast.error('An unexpected error occurred');
